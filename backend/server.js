@@ -106,7 +106,25 @@ app.post('/api/login', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+// ROTA PARA DASHBOARD
+app.get('/api/dashboard', async (req, res) => {
+    try {
+        // Soma o total de vendas de hoje
+        const queryVendasHoje = "SELECT SUM(produto_preco - desconto) as total FROM vendas WHERE DATE(data_venda) = CURRENT_DATE";
+        const vendasResult = await pool.query(queryVendasHoje);
+        const totalVendasHoje = parseFloat(vendasResult.rows[0].total) || 0;
 
+        // Conta quantos produtos estão com estoque baixo (ex: < 10)
+        const queryEstoqueBaixo = "SELECT COUNT(*) as count FROM estoque WHERE quantidade < 10";
+        const estoqueResult = await pool.query(queryEstoqueBaixo);
+        const estoqueBaixoCount = parseInt(estoqueResult.rows[0].count) || 0;
+
+        res.json({ totalVendasHoje, estoqueBaixoCount });
+    } catch(err) {
+        console.error("Erro na rota dashboard:", err.message);
+        res.status(500).json({error: "Erro interno do servidor"});
+    }
+});
 // ROTAS DE ESTOQUE
 app.get('/api/estoque', async (req, res) => {
     try {
