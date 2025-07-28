@@ -1,14 +1,14 @@
-// VERSÃO FINAL E CORRIGIDA - 29/07/2025
-
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const { Pool } = require('pg');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const port = process.env.PORT || 3000;
 const SALT_ROUNDS = 10;
+const JWT_SECRET = process.env.JWT_SECRET || 'SEGREDO_SUPER_SECRETO_PARA_ASSINAR_OS_TOKENS';
 
 // --- Conexão com o Banco de Dados PostgreSQL ---
 const pool = new Pool({
@@ -22,183 +22,128 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-// --- Função para criar o Schema do Banco de Dados ---
-async function setupDatabase() {
-    const client = await pool.connect();
-    try {
-        console.log("Conectado ao PostgreSQL! Verificando tabelas...");
-        
-        // CORREÇÃO: Executando um comando CREATE TABLE de cada vez, que é a forma mais segura.
-        await client.query(`CREATE TABLE IF NOT EXISTS usuarios ( id SERIAL PRIMARY KEY, usuario TEXT UNIQUE NOT NULL, senha TEXT NOT NULL, role TEXT NOT NULL )`);
-        await client.query(`CREATE TABLE IF NOT EXISTS estoque ( id SERIAL PRIMARY KEY, codigo TEXT UNIQUE NOT NULL, nome TEXT NOT NULL, preco REAL NOT NULL, quantidade INTEGER NOT NULL )`);
-        await client.query(`CREATE TABLE IF NOT EXISTS vendas ( id SERIAL PRIMARY KEY, produto_nome TEXT NOT NULL, produto_preco REAL NOT NULL, metodo_pagamento TEXT NOT NULL, desconto REAL DEFAULT 0, data_venda TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP )`);
-        await client.query(`CREATE TABLE IF NOT EXISTS compras ( id SERIAL PRIMARY KEY, produto TEXT NOT NULL, valor REAL NOT NULL, metodo_pagamento TEXT NOT NULL, data_compra DATE NOT NULL )`);
+// --- Middleware de Autenticação ---
+// Verifica o token em cada requisição protegida
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Formato "Bearer TOKEN"
+    if (token == null) return res.sendStatus(401); // Sem token, sem acesso
 
-        const res = await client.query('SELECT * FROM usuarios WHERE usuario = $1', ['admin']);
-        if (res.rowCount === 0) {
-            const adminPass = 'admin123';
-            const hash = await bcrypt.hash(adminPass, SALT_ROUNDS);
-            await client.query('INSERT INTO usuarios (usuario, senha, role) VALUES ($1, $2, $3)', ['admin', hash, 'admin']);
-            console.log('Usuário "admin" criado com senha "admin123"');
-        }
-        console.log('Tabelas do banco de dados verificadas/criadas com sucesso.');
-    } catch (err) {
-        console.error('Erro CRÍTICO durante o setup do banco de dados:', err);
-        // Em caso de erro aqui, o ideal é encerrar o processo para evitar que o servidor rode com um estado inconsistente.
-        process.exit(1);
-    } finally {
-        client.release();
-    }
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403); // Token inválido
+        req.user = user; // Salva as informações do usuário (id, loja_id, role) na requisição
+        next(); // Continua para a rota solicitada
+    });
 }
 
-setupDatabase().then(() => {
-    app.listen(port, () => {
-        console.log(`\n--- SERVIDOR PRONTO E RODANDO EM http://localhost:${port} ---`);
-    });
-});
 
 // --- ROTAS DA API ---
 
-// ROTA DE LOGIN
+// ROTA DE LOGIN (Agora devolve um token)
 app.post('/api/login', async (req, res) => {
     try {
         const { usuario, senha } = req.body;
         const result = await pool.query('SELECT * FROM usuarios WHERE usuario = $1', [usuario]);
         const user = result.rows[0];
         if (!user) return res.status(404).json({ error: "Usuário não encontrado" });
+
         const match = await bcrypt.compare(senha, user.senha);
-        if (match) res.json({ message: "Login bem-sucedido", role: user.role });
-        else res.status(401).json({ error: "Senha incorreta" });
-    } catch (err) { console.error(`[POST /api/login] ${err.message}`); res.status(500).json({ error: err.message }); }
+        if (match) {
+            const payload = { userId: user.id, lojaId: user.loja_id, role: user.role };
+            const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });
+            // Retorna o token e o cargo para o frontend
+            res.json({ message: "Login bem-sucedido", token: token, role: user.role });
+        } else {
+            res.status(401).json({ error: "Senha incorreta" });
+        }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- ROTAS DE ESTOQUE ---
-app.get('/api/estoque', async (req, res) => {
+
+// --- ROTAS PROTEGIDAS ---
+// Todas as rotas abaixo agora usam o middleware 'authenticateToken'
+
+// ROTAS DE ESTOQUE
+app.get('/api/estoque', authenticateToken, async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM estoque ORDER BY nome');
+        const { lojaId } = req.user;
+        const result = await pool.query('SELECT * FROM estoque WHERE loja_id = $1 ORDER BY nome', [lojaId]);
         res.json(result.rows);
-    } catch (err) { console.error(`[GET /api/estoque] ${err.message}`); res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/estoque', async (req, res) => {
+app.post('/api/estoque', authenticateToken, async (req, res) => {
     try {
+        const { lojaId } = req.user;
         const { codigo, nome, preco, quantidade } = req.body;
         const query = `
-            INSERT INTO estoque (codigo, nome, preco, quantidade) VALUES ($1, $2, $3, $4) 
+            INSERT INTO estoque (codigo, nome, preco, quantidade, loja_id) VALUES ($1, $2, $3, $4, $5) 
             ON CONFLICT (codigo) DO UPDATE SET quantidade = estoque.quantidade + $4, preco = $3`;
-        await pool.query(query, [codigo, nome, parseFloat(preco), parseInt(quantidade)]);
+        await pool.query(query, [codigo, nome, parseFloat(preco), parseInt(quantidade), lojaId]);
         res.status(201).json({ message: "Produto adicionado/atualizado!" });
-    } catch (err) { console.error(`[POST /api/estoque] ${err.message}`); res.status(400).json({ error: err.message }); }
+    } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
-app.put('/api/estoque/:codigo/adicionar', async (req, res) => {
+// ROTAS DE USUÁRIOS
+app.get('/api/usuarios', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') return res.sendStatus(403); // Apenas admin pode listar
     try {
-        const { quantidade } = req.body;
-        const query = 'UPDATE estoque SET quantidade = quantidade + $1 WHERE codigo = $2';
-        const result = await pool.query(query, [parseInt(quantidade), req.params.codigo]);
-        if (result.rowCount === 0) return res.status(404).json({ error: 'Produto não encontrado.' });
-        res.json({ message: 'Estoque atualizado com sucesso!' });
-    } catch (err) { console.error(`[PUT /api/estoque/:codigo/adicionar] ${err.message}`); res.status(400).json({ error: err.message }); }
-});
-
-app.delete('/api/estoque/:codigo', async (req, res) => {
-    try {
-        const query = 'DELETE FROM estoque WHERE codigo = $1';
-        const result = await pool.query(query, [req.params.codigo]);
-        if (result.rowCount === 0) return res.status(404).json({ error: 'Produto não encontrado.' });
-        res.json({ message: 'Produto excluído com sucesso!' });
-    } catch (err) { console.error(`[DELETE /api/estoque/:codigo] ${err.message}`); res.status(400).json({ error: err.message }); }
-});
-
-// --- ROTAS DE USUÁRIOS ---
-app.get('/api/usuarios', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT id, usuario, role FROM usuarios ORDER BY usuario');
+        const { lojaId } = req.user;
+        const result = await pool.query('SELECT id, usuario, role FROM usuarios WHERE loja_id = $1 ORDER BY usuario', [lojaId]);
         res.json(result.rows);
-    } catch (err) { console.error(`[GET /api/usuarios] ${err.message}`); res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/usuarios', async (req, res) => {
+app.post('/api/usuarios', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'admin') return res.sendStatus(403); // Apenas admin pode criar
     const { usuario, senha, role } = req.body;
+    const { lojaId } = req.user;
     if (!usuario || !senha || !role) return res.status(400).json({ error: 'Usuário, senha e cargo são obrigatórios.' });
     try {
         const hash = await bcrypt.hash(senha, SALT_ROUNDS);
-        const query = 'INSERT INTO usuarios (usuario, senha, role) VALUES ($1, $2, $3) RETURNING id';
-        const result = await pool.query(query, [usuario, hash, role]);
-        res.status(201).json({ message: 'Usuário criado com sucesso!', userId: result.rows[0].id });
+        const query = 'INSERT INTO usuarios (usuario, senha, role, loja_id) VALUES ($1, $2, $3, $4) RETURNING id';
+        await pool.query(query, [usuario, hash, role, lojaId]);
+        res.status(201).json({ message: 'Usuário criado com sucesso!'});
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: 'Este nome de usuário já existe.' });
-        console.error(`[POST /api/usuarios] ${err.message}`);
         res.status(500).json({ error: err.message });
     }
 });
 
-// --- ROTAS DE RELATÓRIOS E VENDAS ---
-app.get('/api/relatorios/vendas', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM vendas ORDER BY data_venda DESC');
-        res.json(result.rows);
-    } catch(err) { console.error(`[GET /api/relatorios/vendas] ${err.message}`); res.status(500).json({error: err.message}); }
-});
 
-app.get('/api/relatorios/compras', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM compras ORDER BY data_compra DESC');
-        res.json(result.rows);
-    } catch (err) { console.error(`[GET /api/relatorios/compras] ${err.message}`); res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/relatorios/compras', async (req, res) => {
-    try {
-        const { dataCompra, metodoPagamento, produto, valor } = req.body;
-        const query = 'INSERT INTO compras (data_compra, metodo_pagamento, produto, valor) VALUES ($1, $2, $3, $4)';
-        await pool.query(query, [dataCompra, metodoPagamento, produto, parseFloat(valor)]);
-        res.status(201).json({ message: "Compra registrada!" });
-    } catch (err) { console.error(`[POST /api/relatorios/compras] ${err.message}`); res.status(400).json({ error: err.message }); }
-});
-
-app.post('/api/vendas', async (req, res) => {
+// ROTAS DE VENDAS
+app.post('/api/vendas', authenticateToken, async (req, res) => {
     const { itens, metodoPagamento, desconto } = req.body;
+    const { lojaId } = req.user;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const insertVendaQuery = "INSERT INTO vendas (produto_nome, produto_preco, metodo_pagamento, desconto) VALUES ($1, $2, $3, $4)";
-        const updateEstoqueQuery = "UPDATE estoque SET quantidade = quantidade - 1 WHERE codigo = $1 AND quantidade > 0";
+        const insertVendaQuery = "INSERT INTO vendas (produto_nome, produto_preco, metodo_pagamento, desconto, loja_id) VALUES ($1, $2, $3, $4, $5)";
+        const updateEstoqueQuery = "UPDATE estoque SET quantidade = quantidade - 1 WHERE codigo = $1 AND loja_id = $2 AND quantidade > 0";
         const descontoPorItem = (desconto / itens.length) || 0;
         for (const item of itens) {
-            await client.query(insertVendaQuery, [item.nome, item.preco, metodoPagamento, descontoPorItem]);
-            const estoqueResult = await client.query(updateEstoqueQuery, [item.codigo]);
+            await client.query(insertVendaQuery, [item.nome, item.preco, metodoPagamento, descontoPorItem, lojaId]);
+            const estoqueResult = await client.query(updateEstoqueQuery, [item.codigo, lojaId]);
             if (estoqueResult.rowCount === 0) throw new Error(`Estoque insuficiente para o produto ${item.nome}`);
         }
         await client.query('COMMIT');
         res.status(201).json({message: "Vendas registradas e estoque atualizado!"});
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error(`[POST /api/vendas] ${err.message}`);
         res.status(500).json({error: "Erro ao registrar vendas: " + err.message});
     } finally {
         client.release();
     }
 });
 
-// --- ROTA PARA DASHBOARD ---
-app.get('/api/dashboard', async (req, res) => {
-    try {
-        const queryVendasHoje = "SELECT SUM(produto_preco - desconto) as total FROM vendas WHERE DATE(data_venda) = CURRENT_DATE";
-        const vendasResult = await pool.query(queryVendasHoje);
-        const totalVendasHoje = parseFloat(vendasResult.rows[0].total) || 0;
-        const queryEstoqueBaixo = "SELECT COUNT(*) as count FROM estoque WHERE quantidade < 10";
-        const estoqueResult = await pool.query(queryEstoqueBaixo);
-        const estoqueBaixoCount = parseInt(estoqueResult.rows[0].count) || 0;
-        res.json({ totalVendasHoje, estoqueBaixoCount });
-    } catch(err) {
-        console.error(`[GET /api/dashboard] ${err.message}`);
-        res.status(500).json({error: "Erro interno do servidor"});
-    }
-});
 
 // --- SERVIR ARQUIVOS DO FRONTEND ---
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
+
+
+app.listen(port, () => {
+    console.log(`--- Servidor Multi-Tenant com JWT rodando em http://localhost:${port} ---`);
 });

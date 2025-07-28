@@ -43,7 +43,11 @@
                     <span class="material-icons">inventory_2</span>
                     <h3>Relatório de Estoque</h3>
                 </div>
+                <div class="report-card" onclick="mostrarRelatorioCompras()">
+                    <span class="material-icons">shopping_cart</span>
+                    <h3>Relatório de Compras</h3>
                 </div>
+            </div>
             <div id="output-area" style="display: none;"></div>
             <div id="registrar-compra">
                 <h2 class="section-title">Registrar Nova Compra de Insumos</h2>
@@ -64,7 +68,8 @@
     <footer>FKSoft &copy; 2025</footer>
 
     <script>
-        if (sessionStorage.getItem('isLoggedIn') !== 'true') {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
             window.location.href = '/login.html';
         }
 
@@ -75,16 +80,21 @@
             return senha === "123";
         }
 
+        async function fetchComAuth(url) {
+            return fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        }
+
         async function mostrarRelatorioVendas() {
             if (!solicitarSenha()) return alert("Senha incorreta.");
             try {
-                const response = await fetch('/api/relatorios/vendas');
+                const response = await fetchComAuth('/api/relatorios/vendas');
                 const vendas = await response.json();
                 outputArea.style.display = 'block';
                 let content = '<h3>Relatório de Vendas</h3>';
-                if(vendas.length === 0) {
-                    content += '<p>Nenhuma venda registrada.</p>';
-                } else {
+                if(vendas.length === 0) content += '<p>Nenhuma venda registrada.</p>';
+                else {
                     vendas.forEach(v => {
                         const data = new Date(v.data_venda).toLocaleString('pt-BR');
                         content += `<div class="relatorio-item">
@@ -94,22 +104,18 @@
                     });
                 }
                 outputArea.innerHTML = content;
-            } catch (error) {
-                alert('Erro ao carregar relatório de vendas.');
-                console.error(error);
-            }
+            } catch (error) { alert('Erro ao carregar relatório de vendas.'); }
         }
         
         async function mostrarRelatorioEstoque() {
             if (!solicitarSenha()) return alert("Senha incorreta.");
             try {
-                const response = await fetch('/api/estoque');
+                const response = await fetchComAuth('/api/estoque');
                 const estoque = await response.json();
                 outputArea.style.display = 'block';
                 let content = '<h3>Relatório de Estoque</h3>';
-                if(estoque.length === 0) {
-                    content += '<p>Estoque vazio.</p>';
-                } else {
+                if(estoque.length === 0) content += '<p>Estoque vazio.</p>';
+                else {
                     estoque.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(p => {
                          content += `<div class="relatorio-item">
                                         <span><strong>Produto:</strong> ${p.nome} (Cód: ${p.codigo})</span>
@@ -118,10 +124,28 @@
                     });
                 }
                 outputArea.innerHTML = content;
-            } catch (error) {
-                alert('Erro ao carregar relatório de estoque.');
-                console.error(error);
-            }
+            } catch (error) { alert('Erro ao carregar relatório de estoque.'); }
+        }
+
+        async function mostrarRelatorioCompras() {
+            if (!solicitarSenha()) return alert("Senha incorreta.");
+            try {
+                const response = await fetchComAuth('/api/relatorios/compras');
+                const compras = await response.json();
+                outputArea.style.display = 'block';
+                let content = '<h3>Relatório de Compras</h3>';
+                if (compras.length === 0) content += '<p>Nenhuma compra registrada.</p>';
+                else {
+                    compras.forEach(c => {
+                        const data = new Date(c.data_compra).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+                        content += `<div class="relatorio-item">
+                                        <span>${data} - <strong>Produto:</strong> ${c.produto}</span>
+                                        <span><strong>Valor:</strong> R$ ${parseFloat(c.valor).toFixed(2)} - <strong>Pgto:</strong> ${c.metodo_pagamento}</span>
+                                    </div>`;
+                    });
+                }
+                outputArea.innerHTML = content;
+            } catch (error) { alert('Erro ao carregar relatório de compras.'); }
         }
         
         async function adicionarCompra() {
@@ -131,23 +155,18 @@
                 produto: document.getElementById('produtoCompra').value,
                 valor: parseFloat(document.getElementById('valorCompra').value)
             };
-
             if(!compra.dataCompra || !compra.metodoPagamento || !compra.produto || isNaN(compra.valor)) {
                 return alert('Preencha todos os campos da compra.');
             }
-
             try {
                 const response = await fetch('/api/relatorios/compras', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify(compra)
                 });
                 if (!response.ok) throw new Error('Falha ao registrar compra.');
                 alert('Compra registrada com sucesso!');
-            } catch(error) {
-                alert(error.message);
-                console.error(error);
-            }
+            } catch(error) { alert(error.message); }
         }
     </script>
 </body>

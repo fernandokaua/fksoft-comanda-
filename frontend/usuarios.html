@@ -45,8 +45,10 @@
     </main>
 
     <script>
-        const userRole = sessionStorage.getItem('userRole');
-        if (sessionStorage.getItem('isLoggedIn') !== 'true' || userRole !== 'admin') {
+        const token = localStorage.getItem('authToken');
+        const userRole = localStorage.getItem('userRole');
+        
+        if (!token || userRole !== 'admin') {
             alert('Acesso negado. Você não tem permissão para ver esta página.');
             window.location.href = '/index.html';
         }
@@ -55,7 +57,9 @@
 
         async function carregarUsuarios() {
             try {
-                const response = await fetch(apiUrl);
+                const response = await fetch(apiUrl, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 const usuarios = await response.json();
                 const listaDiv = document.getElementById('listaDeUsuarios');
                 listaDiv.innerHTML = '';
@@ -75,9 +79,7 @@
                         </div>
                     `;
                 });
-            } catch (error) {
-                console.error('Erro ao carregar usuários:', error);
-            }
+            } catch (error) { console.error('Erro ao carregar usuários:', error); }
         }
 
         async function criarUsuario() {
@@ -94,7 +96,10 @@
             try {
                 const response = await fetch(apiUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify(novoUsuario)
                 });
 
