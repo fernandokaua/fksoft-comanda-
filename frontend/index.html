@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Bar do Zé - Início</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Inter', sans-serif; background-color: #f4f4f4; color: #333; display: flex; flex-direction: column; min-height: 100vh; }
+        header, footer { background-color: #2c3e50; padding: 10px; text-align: center; color: #ecf0f1; font-size: 1.5rem; font-weight: bold; }
+        main { display: flex; flex-direction: column; justify-content: center; align-items: center; flex-grow: 1; padding: 20px; }
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 800px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        .stat-card h3 { margin: 0 0 10px 0; color: #555; }
+        .stat-card p { font-size: 2rem; font-weight: 700; margin: 0; color: #007bff; }
+        .nav-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px; width: 100%; max-width: 1200px; }
+        .nav-button { padding: 40px; text-align: center; color: white; font-size: 2rem; font-weight: 700; text-decoration: none; border-radius: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: transform 0.2s; box-shadow: 0 6px 15px rgba(0,0,0,0.15); }
+        .nav-button:hover { transform: translateY(-5px); }
+        .nav-button svg { width: 60px; height: 60px; margin-bottom: 20px; }
+        #btn-comandas { background-color: #1abc9c; }
+        #btn-estoque { background-color: #9b59b6; }
+        #btn-relatorios { background-color: #3498db; }
+    </style>
+</head>
+<body>
+    <header>Sistema de Comandas - Painel Principal</header>
+    <main>
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <h3>Vendas do Dia</h3>
+                <p id="vendasHoje">R$ 0,00</p>
+            </div>
+            <div class="stat-card">
+                <h3>Itens com Estoque Baixo</h3>
+                <p id="estoqueBaixo">0</p>
+            </div>
+        </div>
+        <div class="nav-grid">
+            <a href="comandas.html" class="nav-button" id="btn-comandas">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                COMANDAS
+            </a>
+            <a href="estoque.html" class="nav-button" id="btn-estoque">
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 24 24"><path d="M21.6 6.2l-3.4-3.4c-.4-.4-.9-.6-1.4-.6H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7.6c0-.5-.2-1-.6-1.4zM15 19H9v-2h6v2zm0-4H9v-2h6v2zm-2-4H9V9h4v2z"/></svg>
+                ESTOQUE
+            </a>
+            <a href="relatorios.html" class="nav-button" id="btn-relatorios">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                RELATÓRIOS
+            </a>
+        </div>
+    </main>
+    <footer>FKSoft &copy; 2025</footer>
+
+    <script>
+        // Proteção de Rota
+        if (sessionStorage.getItem('isLoggedIn') !== 'true') {
+            window.location.href = '/login.html';
+        }
+
+        // Carregar dados do Dashboard
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/api/dashboard');
+                if (!response.ok) throw new Error('Falha ao carregar dados do dashboard');
+                
+                const data = await response.json();
+                document.getElementById('vendasHoje').textContent = `R$ ${data.totalVendasHoje.toFixed(2)}`;
+                document.getElementById('estoqueBaixo').textContent = data.estoqueBaixoCount;
+
+            } catch (error) {
+                console.error(error);
+                alert(error.message);
+            }
+        });
+    </script>
+</body>
+</html>

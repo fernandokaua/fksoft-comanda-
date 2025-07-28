@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Gerenciador de Comandas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Roboto', sans-serif; background-color: #f8f9fa; color: #333; display: flex; flex-direction: column; min-height: 100vh; }
+        header, footer { background-color: #343a40; padding: 10px; text-align: center; color: #ffffff; font-size: 1.5rem; font-weight: 500; }
+        footer { padding: 5px; font-size: 12px; }
+        main { display: flex; flex: 1; justify-content: center; padding: 20px; }
+        
+        #comandas-container { width: 100%; max-width: 900px; }
+
+        .section-title { font-size: 2rem; font-weight: 700; color: #343a40; margin-bottom: 20px; border-bottom: 3px solid #007bff; padding-bottom: 10px; }
+
+        .card { background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); padding: 25px; margin-bottom: 20px; }
+        
+        input, select, button { padding: 12px; margin: 8px 0; width: 100%; border: 1px solid #ced4da; border-radius: 8px; font-size: 1rem; font-family: 'Roboto', sans-serif; }
+
+        .action-button { background-color: #007bff; color: white; font-weight: 500; cursor: pointer; transition: background-color 0.2s; border: none; }
+        .action-button:hover { background-color: #0056b3; }
+
+        .comanda { background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; overflow: hidden; }
+        
+        .comanda-header {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 15px;
+            align-items: center;
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 15px;
+        }
+        
+        .comanda-header h4 {
+            margin: 0;
+            font-size: 1.3rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .toggle-minimize-button {
+            background: none;
+            border: none;
+            color: #ffffff;
+            cursor: pointer;
+            padding: 5px;
+        }
+        
+        .comanda-body { padding: 15px; }
+        
+        .item { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 8px; }
+        .item-delete-button { background-color: #dc3545; color: white; border: none; cursor: pointer; width: 32px; height: 32px; border-radius: 50%; display: flex; justify-content: center; align-items: center; }
+        
+        .comanda-footer { padding: 15px; background-color: #f8f9fa; border-top: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; }
+        .comanda-total { font-size: 1.2rem; font-weight: 700; }
+        .comanda-actions button { width: auto; padding: 10px 15px; margin-left: 10px; color: white; border: none; }
+        
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 10; }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .modal-content h3 { margin-top: 0; font-size: 1.5rem; color: #343a40; }
+        .metodo-pagamento { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
+        .metodo-pagamento button { font-size: 1rem; background-color: #6c757d; }
+        .metodo-pagamento button:hover { background-color: #5a6268; }
+    </style>
+</head>
+<body>
+    <header>Sistema de Comandas - Comandas</header>
+    <main>
+        <div id="comandas-container">
+            <h2 class="section-title">Gerenciar Comandas</h2>
+            
+            <div class="card">
+                <h3>Abrir Nova Comanda</h3>
+                <input id="cliente" placeholder="Nome do Cliente" />
+                <button class="action-button" onclick="adicionarCliente()">Adicionar Cliente</button>
+            </div>
+
+            <div class="card">
+                <h3>Pesquisar Comanda</h3>
+                <input id="searchInput" placeholder="Digite o nome do cliente para filtrar..." onkeyup="filtrarComandas()">
+            </div>
+
+            <div id="listaComandas"></div>
+        </div>
+    </main>
+    <footer>FKSoft &copy; 2025</footer>
+
+    <div id="modalPagamento" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Finalizar Pagamento</h3>
+            <div class="metodo-pagamento">
+                <button onclick="finalizarPagamento('Dinheiro')">Dinheiro</button>
+                <button onclick="finalizarPagamento('PIX')">PIX</button>
+                <button onclick="finalizarPagamento('Débito')">Débito</button>
+                <button onclick="finalizarPagamento('Crédito')">Crédito</button>
+            </div>
+            <hr>
+            <h3>Aplicar Desconto</h3>
+            <input type="number" id="descontoValor" placeholder="Desconto (R$)" min="0" value="0" step="0.01"/>
+            <button class="action-button" onclick="aplicarDesconto()">Aplicar Desconto</button>
+            <p style="font-size: 1.2rem; margin-top: 15px;">Total com desconto: <strong id="totalComDesconto">R$ 0.00</strong></p>
+        </div>
+    </div>
+
+    <script>
+    // Proteção de Rota
+    if (sessionStorage.getItem('isLoggedIn') !== 'true') {
+        window.location.href = '/login.html';
+    }
+    
+    let comandas = JSON.parse(localStorage.getItem('comandasAtivas')) || {};
+    let estoqueDisponivel = [];
+
+    // Carrega o estoque do backend para consulta
+    async function carregarEstoqueLocal() {
+        try {
+            const response = await fetch('/api/estoque');
+            estoqueDisponivel = await response.json();
+        } catch (error) {
+            console.error('Falha ao carregar estoque para comandas:', error);
+            alert('Não foi possível carregar o estoque. A adição de itens pode falhar.');
+        }
+    }
+
+    function salvarComandasAtivasLocal() {
+        localStorage.setItem('comandasAtivas', JSON.stringify(comandas));
+    }
+
+    function adicionarCliente() {
+        const nome = document.getElementById('cliente').value.trim();
+        if (!nome) return alert('Digite o nome do cliente.');
+        if (!comandas[nome]) {
+            comandas[nome] = [];
+            salvarComandasAtivasLocal();
+            renderComandas();
+            document.getElementById('cliente').value = '';
+        } else {
+            alert('Cliente já possui uma comanda aberta.');
+        }
+    }
+
+    function adicionarProdutoAComanda(cliente) {
+        const codigo = prompt("Digite o código do produto:");
+        if (!codigo) return;
+        
+        const produto = estoqueDisponivel.find(p => p.codigo === codigo);
+        if (!produto) return alert('Produto não encontrado no estoque.');
+        if (produto.quantidade <= 0) return alert(`Produto "${produto.nome}" sem estoque.`);
+        
+        const item = { codigo: produto.codigo, nome: produto.nome, preco: produto.preco };
+        comandas[cliente].push(item);
+        
+        // Atualiza a contagem local do estoque para evitar vender mais do que tem
+        produto.quantidade--; 
+        
+        salvarComandasAtivasLocal();
+        renderComandas();
+    }
+
+    async function fecharComanda(cliente) {
+        const itensDaComanda = comandas[cliente];
+        if (!itensDaComanda || itensDaComanda.length === 0) {
+            return alert("Comanda vazia. Adicione produtos antes de fechar.");
+        }
+
+        const total = itensDaComanda.reduce((s, i) => s + i.preco, 0);
+        const metodoPagamento = prompt(`Total: R$ ${total.toFixed(2)}. Digite o método de pagamento (Dinheiro, PIX, Débito, Crédito):`);
+        
+        if (!metodoPagamento) return alert("Pagamento cancelado.");
+
+        const descontoStr = prompt("Valor do desconto (R$):", "0");
+        const desconto = parseFloat(descontoStr) || 0;
+
+        try {
+            const response = await fetch('/api/vendas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    itens: itensDaComanda,
+                    metodoPagamento: metodoPagamento,
+                    desconto: desconto
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || 'Falha ao finalizar a venda.');
+            }
+
+            alert('Venda finalizada com sucesso!');
+            delete comandas[cliente];
+            salvarComandasAtivasLocal();
+            renderComandas();
+            carregarEstoqueLocal(); // Recarrega o estoque do backend
+
+        } catch (error) {
+            console.error('Erro:', error);
+            alert(error.message);
+        }
+    }
+
+    // Funções de renderização e exclusão de item (continuam parecidas)
+    function excluirItem(cliente, index) {
+        const itemRemovido = comandas[cliente][index];
+        // Devolve o item para a contagem de estoque local
+        const produto = estoqueDisponivel.find(p => p.codigo === itemRemovido.codigo);
+        if (produto) produto.quantidade++;
+
+        comandas[cliente].splice(index, 1);
+        salvarComandasAtivasLocal();
+        renderComandas();
+    }
+
+    function renderComandas() {
+        const div = document.getElementById('listaComandas');
+        div.innerHTML = '';
+        for (let cliente in comandas) {
+            const totalComanda = comandas[cliente].reduce((s, i) => s + i.preco, 0).toFixed(2);
+            div.innerHTML += `
+                <div class="comanda">
+                    <div class="comanda-header"><h4>${cliente}</h4></div>
+                    <div class="comanda-body">
+                        ${comandas[cliente].map((item, i) => `
+                            <div class="item">
+                                <span>${item.nome} - R$ ${item.preco.toFixed(2)}</span>
+                                <button class="item-delete-button" onclick="excluirItem('${cliente}', ${i})">&times;</button>
+                            </div>
+                        `).join('') || '<p>Nenhum item adicionado.</p>'}
+                    </div>
+                    <div class="comanda-footer">
+                        <span class="comanda-total">Total: R$ ${totalComanda}</span>
+                        <div class="comanda-actions">
+                            <button onclick="adicionarProdutoAComanda('${cliente}')">Adicionar Item</button>
+                            <button onclick="fecharComanda('${cliente}')" style="background-color:#28a745;">Fechar Comanda</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        carregarEstoqueLocal();
+        renderComandas();
+    });
+</script>
+</body>
+</html>

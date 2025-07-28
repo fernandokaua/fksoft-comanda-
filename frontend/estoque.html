@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Controle de Estoque</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Roboto', sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        header, footer {
+            background-color: #343a40;
+            padding: 10px;
+            text-align: center;
+            color: #ffffff;
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+        footer { padding: 5px; font-size: 12px; }
+        main {
+            display: flex;
+            flex: 1;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        #estoque-container {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #343a40;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+
+        .card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        input, button {
+            padding: 12px;
+            margin: 8px 0;
+            width: 100%;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border: none;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #resultadoConsulta {
+            font-weight: 500;
+            font-size: 1.1rem;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .estoque-item {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 5px solid #007bff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .estoque-item-info {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .estoque-item-info span {
+            color: #495057;
+        }
+
+        .estoque-item-info strong {
+            color: #343a40;
+            font-size: 1.1rem;
+        }
+        
+        .estoque-item-actions {
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .botao-adicionar-estoque {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: auto;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+         .botao-adicionar-estoque:hover {
+            background-color: #218838;
+        }
+
+        .botao-excluir-estoque {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: auto;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .botao-excluir-estoque:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <header>Sistema de Comandas - Estoque</header>
+    <main>
+        <div id="estoque-container">
+            <h2 class="section-title">Controle de Estoque</h2>
+            
+            <div class="card">
+                <h3>Adicionar Produto</h3>
+                <input id="codigo" placeholder="Código do Produto" />
+                <input id="nome" placeholder="Nome do Produto" />
+                <input id="preco" type="number" placeholder="Preço do Produto (R$)" />
+                <input id="quantidade" type="number" placeholder="Quantidade" />
+                <button onclick="adicionarAoEstoque()">Adicionar ao Estoque</button>
+            </div>
+            
+            <div class="card">
+                <h3>Consultar Produto</h3>
+                <input id="codigoConsulta" placeholder="Digite o Código do Produto" />
+                <button onclick="consultarValorProduto()">Consultar</button>
+                <p id="resultadoConsulta"></p>
+            </div>
+
+            <div class="card">
+                <h3>Itens no Estoque</h3>
+                <div id="listaEstoque"></div>
+            </div>
+        </div>
+    </main>
+    <footer>FKSoft &copy; 2025</footer>
+
+    <script>
+    // Proteção de Rota
+    if (sessionStorage.getItem('isLoggedIn') !== 'true') {
+        window.location.href = '/login.html';
+    }
+
+    const apiUrl = '/api/estoque';
+
+    async function carregarEstoque() {
+        try {
+            const response = await fetch(apiUrl);
+            const estoque = await response.json();
+            renderEstoque(estoque);
+        } catch (error) {
+            console.error('Erro ao carregar estoque:', error);
+            alert('Não foi possível carregar o estoque.');
+        }
+    }
+
+    function renderEstoque(estoque) {
+        const div = document.getElementById('listaEstoque');
+        div.innerHTML = '';
+        if (estoque.length === 0) {
+            div.innerHTML = '<p>Nenhum item no estoque.</p>';
+            return;
+        }
+        estoque.forEach(prod => {
+            div.innerHTML += `
+                <div class="estoque-item">
+                    <div class="estoque-item-info">
+                        <strong>${prod.nome}</strong>
+                        <span>Cód: ${prod.codigo} | Preço: R$ ${prod.preco.toFixed(2)} | Qtd: ${prod.quantidade}</span>
+                    </div>
+                    <div class="estoque-item-actions">
+                        <button class="botao-adicionar-estoque" onclick="adicionarUnidadeEstoque('${prod.codigo}')" title="Adicionar quantidade ao estoque">
+                            <span class="material-icons" style="font-size: 18px;">add</span>
+                        </button>
+                        <button class="botao-excluir-estoque" onclick="excluirProduto('${prod.codigo}')" title="Excluir produto do estoque">
+                            <span class="material-icons" style="font-size: 18px;">delete</span>
+                        </button>
+                    </div>
+                </div>`;
+        });
+    }
+
+    async function adicionarAoEstoque() {
+        const produto = {
+            codigo: document.getElementById('codigo').value,
+            nome: document.getElementById('nome').value,
+            preco: parseFloat(document.getElementById('preco').value),
+            quantidade: parseInt(document.getElementById('quantidade').value),
+        };
+
+        if (!produto.codigo || !produto.nome || isNaN(produto.preco) || isNaN(produto.quantidade)) {
+            return alert('Preencha todos os campos corretamente.');
+        }
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(produto)
+            });
+            if (!response.ok) throw new Error('Falha ao adicionar produto.');
+            
+            alert('Produto adicionado com sucesso!');
+            // Limpar formulário
+            document.getElementById('codigo').value = '';
+            document.getElementById('nome').value = '';
+            document.getElementById('preco').value = '';
+            document.getElementById('quantidade').value = '';
+            carregarEstoque(); // Recarregar lista
+        } catch (error) {
+            console.error('Erro:', error);
+            alert(error.message);
+        }
+    }
+
+    async function adicionarUnidadeEstoque(codigo) {
+        const quantidadeStr = prompt("Qual a quantidade que deseja adicionar?");
+        const quantidade = parseInt(quantidadeStr);
+
+        if (isNaN(quantidade) || quantidade <= 0) return alert("Quantidade inválida.");
+
+        try {
+            const response = await fetch(`${apiUrl}/${codigo}/adicionar`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quantidade })
+            });
+            if (!response.ok) throw new Error('Falha ao atualizar estoque.');
+            carregarEstoque();
+        } catch (error) {
+            console.error('Erro:', error);
+            alert(error.message);
+        }
+    }
+    
+    async function excluirProduto(codigo) {
+        if (!confirm(`Tem certeza que deseja excluir o produto de código ${codigo}?`)) return;
+
+        try {
+            const response = await fetch(`${apiUrl}/${codigo}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error('Falha ao excluir produto.');
+            carregarEstoque();
+        } catch (error) {
+            console.error('Erro:', error);
+            alert(error.message);
+        }
+    }
+
+    // Carregamento inicial
+    document.addEventListener('DOMContentLoaded', carregarEstoque);
+</script>
+</body>
+</html>
