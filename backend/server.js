@@ -1,4 +1,4 @@
-// VERSÃO FINAL E COMPLETA - USANDO EXPRESS + POSTGRESQL
+// VERSÃO FINAL E CORRIGIDA - 29/07/2025
 
 const express = require('express');
 const cors = require('cors');
@@ -27,12 +27,13 @@ async function setupDatabase() {
     const client = await pool.connect();
     try {
         console.log("Conectado ao PostgreSQL! Verificando tabelas...");
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS usuarios ( id SERIAL PRIMARY KEY, usuario TEXT UNIQUE NOT NULL, senha TEXT NOT NULL, role TEXT NOT NULL );
-            CREATE TABLE IF NOT EXISTS estoque ( id SERIAL PRIMARY KEY, codigo TEXT UNIQUE NOT NULL, nome TEXT NOT NULL, preco REAL NOT NULL, quantidade INTEGER NOT NULL );
-            CREATE TABLE IF NOT EXISTS vendas ( id SERIAL PRIMARY KEY, produto_nome TEXT NOT NULL, produto_preco REAL NOT NULL, metodo_pagamento TEXT NOT NULL, desconto REAL DEFAULT 0, data_venda TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP );
-            CREATE TABLE IF NOT EXISTS compras ( id SERIAL PRIMARY KEY, produto TEXT NOT NULL, valor REAL NOT NULL, metodo_pagamento TEXT NOT NULL, data_compra DATE NOT NULL );
-        `);
+        
+        // CORREÇÃO: Executando um comando CREATE TABLE de cada vez, que é a forma mais segura.
+        await client.query(`CREATE TABLE IF NOT EXISTS usuarios ( id SERIAL PRIMARY KEY, usuario TEXT UNIQUE NOT NULL, senha TEXT NOT NULL, role TEXT NOT NULL )`);
+        await client.query(`CREATE TABLE IF NOT EXISTS estoque ( id SERIAL PRIMARY KEY, codigo TEXT UNIQUE NOT NULL, nome TEXT NOT NULL, preco REAL NOT NULL, quantidade INTEGER NOT NULL )`);
+        await client.query(`CREATE TABLE IF NOT EXISTS vendas ( id SERIAL PRIMARY KEY, produto_nome TEXT NOT NULL, produto_preco REAL NOT NULL, metodo_pagamento TEXT NOT NULL, desconto REAL DEFAULT 0, data_venda TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP )`);
+        await client.query(`CREATE TABLE IF NOT EXISTS compras ( id SERIAL PRIMARY KEY, produto TEXT NOT NULL, valor REAL NOT NULL, metodo_pagamento TEXT NOT NULL, data_compra DATE NOT NULL )`);
+
         const res = await client.query('SELECT * FROM usuarios WHERE usuario = $1', ['admin']);
         if (res.rowCount === 0) {
             const adminPass = 'admin123';
@@ -42,7 +43,9 @@ async function setupDatabase() {
         }
         console.log('Tabelas do banco de dados verificadas/criadas com sucesso.');
     } catch (err) {
-        console.error('Erro durante o setup do banco de dados:', err);
+        console.error('Erro CRÍTICO durante o setup do banco de dados:', err);
+        // Em caso de erro aqui, o ideal é encerrar o processo para evitar que o servidor rode com um estado inconsistente.
+        process.exit(1);
     } finally {
         client.release();
     }
@@ -66,7 +69,7 @@ app.post('/api/login', async (req, res) => {
         const match = await bcrypt.compare(senha, user.senha);
         if (match) res.json({ message: "Login bem-sucedido", role: user.role });
         else res.status(401).json({ error: "Senha incorreta" });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(`[POST /api/login] ${err.message}`); res.status(500).json({ error: err.message }); }
 });
 
 // --- ROTAS DE ESTOQUE ---
@@ -74,7 +77,7 @@ app.get('/api/estoque', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM estoque ORDER BY nome');
         res.json(result.rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(`[GET /api/estoque] ${err.message}`); res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/estoque', async (req, res) => {
@@ -85,7 +88,7 @@ app.post('/api/estoque', async (req, res) => {
             ON CONFLICT (codigo) DO UPDATE SET quantidade = estoque.quantidade + $4, preco = $3`;
         await pool.query(query, [codigo, nome, parseFloat(preco), parseInt(quantidade)]);
         res.status(201).json({ message: "Produto adicionado/atualizado!" });
-    } catch (err) { res.status(400).json({ error: err.message }); }
+    } catch (err) { console.error(`[POST /api/estoque] ${err.message}`); res.status(400).json({ error: err.message }); }
 });
 
 app.put('/api/estoque/:codigo/adicionar', async (req, res) => {
@@ -95,7 +98,7 @@ app.put('/api/estoque/:codigo/adicionar', async (req, res) => {
         const result = await pool.query(query, [parseInt(quantidade), req.params.codigo]);
         if (result.rowCount === 0) return res.status(404).json({ error: 'Produto não encontrado.' });
         res.json({ message: 'Estoque atualizado com sucesso!' });
-    } catch (err) { res.status(400).json({ error: err.message }); }
+    } catch (err) { console.error(`[PUT /api/estoque/:codigo/adicionar] ${err.message}`); res.status(400).json({ error: err.message }); }
 });
 
 app.delete('/api/estoque/:codigo', async (req, res) => {
@@ -104,7 +107,7 @@ app.delete('/api/estoque/:codigo', async (req, res) => {
         const result = await pool.query(query, [req.params.codigo]);
         if (result.rowCount === 0) return res.status(404).json({ error: 'Produto não encontrado.' });
         res.json({ message: 'Produto excluído com sucesso!' });
-    } catch (err) { res.status(400).json({ error: err.message }); }
+    } catch (err) { console.error(`[DELETE /api/estoque/:codigo] ${err.message}`); res.status(400).json({ error: err.message }); }
 });
 
 // --- ROTAS DE USUÁRIOS ---
@@ -112,7 +115,7 @@ app.get('/api/usuarios', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, usuario, role FROM usuarios ORDER BY usuario');
         res.json(result.rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(`[GET /api/usuarios] ${err.message}`); res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/usuarios', async (req, res) => {
@@ -125,6 +128,7 @@ app.post('/api/usuarios', async (req, res) => {
         res.status(201).json({ message: 'Usuário criado com sucesso!', userId: result.rows[0].id });
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: 'Este nome de usuário já existe.' });
+        console.error(`[POST /api/usuarios] ${err.message}`);
         res.status(500).json({ error: err.message });
     }
 });
@@ -134,14 +138,14 @@ app.get('/api/relatorios/vendas', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM vendas ORDER BY data_venda DESC');
         res.json(result.rows);
-    } catch(err) { res.status(500).json({error: err.message}); }
+    } catch(err) { console.error(`[GET /api/relatorios/vendas] ${err.message}`); res.status(500).json({error: err.message}); }
 });
 
 app.get('/api/relatorios/compras', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM compras ORDER BY data_compra DESC');
         res.json(result.rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { console.error(`[GET /api/relatorios/compras] ${err.message}`); res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/relatorios/compras', async (req, res) => {
@@ -150,7 +154,7 @@ app.post('/api/relatorios/compras', async (req, res) => {
         const query = 'INSERT INTO compras (data_compra, metodo_pagamento, produto, valor) VALUES ($1, $2, $3, $4)';
         await pool.query(query, [dataCompra, metodoPagamento, produto, parseFloat(valor)]);
         res.status(201).json({ message: "Compra registrada!" });
-    } catch (err) { res.status(400).json({ error: err.message }); }
+    } catch (err) { console.error(`[POST /api/relatorios/compras] ${err.message}`); res.status(400).json({ error: err.message }); }
 });
 
 app.post('/api/vendas', async (req, res) => {
@@ -170,6 +174,7 @@ app.post('/api/vendas', async (req, res) => {
         res.status(201).json({message: "Vendas registradas e estoque atualizado!"});
     } catch (err) {
         await client.query('ROLLBACK');
+        console.error(`[POST /api/vendas] ${err.message}`);
         res.status(500).json({error: "Erro ao registrar vendas: " + err.message});
     } finally {
         client.release();
@@ -187,7 +192,7 @@ app.get('/api/dashboard', async (req, res) => {
         const estoqueBaixoCount = parseInt(estoqueResult.rows[0].count) || 0;
         res.json({ totalVendasHoje, estoqueBaixoCount });
     } catch(err) {
-        console.error("Erro na rota dashboard:", err.message);
+        console.error(`[GET /api/dashboard] ${err.message}`);
         res.status(500).json({error: "Erro interno do servidor"});
     }
 });
