@@ -12,11 +12,10 @@ const SALT_ROUNDS = 10;
 
 // --- Conexão com o Banco de Dados PostgreSQL ---
 const pool = new Pool({
-    user: 'postgres',
-    host: 'localhost',
-    database: 'fksoft_db', // O banco de dados que criamos
-    password: '12345',      // A senha que você definiu
-    port: 5432,
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 // Middlewares
