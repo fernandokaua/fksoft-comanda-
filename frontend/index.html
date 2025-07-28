@@ -49,21 +49,33 @@
                 <svg xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
                 RELATÓRIOS
             </a>
+            <a href="usuarios.html" class="nav-button" id="btn-gerenciar-usuarios" style="background-color: #6c757d;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                GERENCIAR USUÁRIOS
+            </a>
         </div>
     </main>
     <footer>FKSoft &copy; 2025</footer>
 
     <script>
-        // Proteção de Rota
         if (sessionStorage.getItem('isLoggedIn') !== 'true') {
             window.location.href = '/login.html';
         }
 
-        // Carregar dados do Dashboard
         document.addEventListener('DOMContentLoaded', async () => {
+            const userRole = sessionStorage.getItem('userRole');
+            const manageUsersButton = document.getElementById('btn-gerenciar-usuarios');
+
+            if (userRole !== 'admin' && manageUsersButton) {
+                manageUsersButton.style.display = 'none';
+            }
+            
             try {
                 const response = await fetch('/api/dashboard');
-                if (!response.ok) throw new Error('Falha ao carregar dados do dashboard');
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Falha ao carregar dados do dashboard');
+                }
                 
                 const data = await response.json();
                 document.getElementById('vendasHoje').textContent = `R$ ${data.totalVendasHoje.toFixed(2)}`;

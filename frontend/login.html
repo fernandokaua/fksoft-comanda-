@@ -39,9 +39,10 @@
                 });
 
                 if (response.ok) {
-                    // Salva um indicador de que o usuário está logado
+                    const data = await response.json();
                     sessionStorage.setItem('isLoggedIn', 'true');
-                    window.location.href = '/index.html'; // Redireciona para o painel
+                    sessionStorage.setItem('userRole', data.role);
+                    window.location.href = '/index.html';
                 } else {
                     const errorData = await response.json();
                     errorMessage.textContent = `Erro: ${errorData.error}`;
