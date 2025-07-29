@@ -1,3 +1,5 @@
+// VERSÃO FINAL E DEFINITIVA - 29/07/2025
+
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -36,7 +38,6 @@ function authenticateToken(req, res, next) {
     });
 }
 
-
 // --- ROTAS DA API ---
 
 // ROTA DE LOGIN (Agora devolve um token)
@@ -51,7 +52,6 @@ app.post('/api/login', async (req, res) => {
         if (match) {
             const payload = { userId: user.id, lojaId: user.loja_id, role: user.role };
             const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });
-            // Retorna o token e o cargo para o frontend
             res.json({ message: "Login bem-sucedido", token: token, role: user.role });
         } else {
             res.status(401).json({ error: "Senha incorreta" });
@@ -84,9 +84,31 @@ app.post('/api/estoque', authenticateToken, async (req, res) => {
     } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
+app.put('/api/estoque/:codigo/adicionar', authenticateToken, async (req, res) => {
+    try {
+        const { lojaId } = req.user;
+        const { quantidade } = req.body;
+        const query = 'UPDATE estoque SET quantidade = quantidade + $1 WHERE codigo = $2 AND loja_id = $3';
+        const result = await pool.query(query, [parseInt(quantidade), req.params.codigo, lojaId]);
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Produto não encontrado.' });
+        res.json({ message: 'Estoque atualizado com sucesso!' });
+    } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/estoque/:codigo', authenticateToken, async (req, res) => {
+    try {
+        const { lojaId } = req.user;
+        const query = 'DELETE FROM estoque WHERE codigo = $1 AND loja_id = $2';
+        const result = await pool.query(query, [req.params.codigo, lojaId]);
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Produto não encontrado.' });
+        res.json({ message: 'Produto excluído com sucesso!' });
+    } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+
 // ROTAS DE USUÁRIOS
 app.get('/api/usuarios', authenticateToken, async (req, res) => {
-    if (req.user.role !== 'admin') return res.sendStatus(403); // Apenas admin pode listar
+    if (req.user.role !== 'admin') return res.sendStatus(403);
     try {
         const { lojaId } = req.user;
         const result = await pool.query('SELECT id, usuario, role FROM usuarios WHERE loja_id = $1 ORDER BY usuario', [lojaId]);
@@ -95,7 +117,7 @@ app.get('/api/usuarios', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/usuarios', authenticateToken, async (req, res) => {
-    if (req.user.role !== 'admin') return res.sendStatus(403); // Apenas admin pode criar
+    if (req.user.role !== 'admin') return res.sendStatus(403);
     const { usuario, senha, role } = req.body;
     const { lojaId } = req.user;
     if (!usuario || !senha || !role) return res.status(400).json({ error: 'Usuário, senha e cargo são obrigatórios.' });
@@ -109,7 +131,6 @@ app.post('/api/usuarios', authenticateToken, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
 
 // ROTAS DE VENDAS
 app.post('/api/vendas', authenticateToken, async (req, res) => {
