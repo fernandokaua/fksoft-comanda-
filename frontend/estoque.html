@@ -23,10 +23,9 @@
         .estoque-item-info span { color: #495057; }
         .estoque-item-info strong { color: #343a40; font-size: 1.1rem; }
         .estoque-item-actions { display: flex; gap: 10px; flex-shrink: 0; }
-        .botao-adicionar-estoque { background-color: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; width: auto; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 5px; }
-        .botao-adicionar-estoque:hover { background-color: #218838; }
-        .botao-excluir-estoque { background-color: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; width: auto; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 5px; }
-        .botao-excluir-estoque:hover { background-color: #c82333; }
+        .botao-adicionar-estoque { background-color: #28a745; } .botao-adicionar-estoque:hover { background-color: #218838; }
+        .botao-excluir-estoque { background-color: #dc3545; } .botao-excluir-estoque:hover { background-color: #c82333; }
+        .estoque-item-actions button { color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; width: auto; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 5px; }
     </style>
 </head>
 <body>
@@ -55,7 +54,6 @@
         if (!token) {
             window.location.href = '/login.html';
         }
-
         const apiUrl = '/api/estoque';
 
         function solicitarSenha() {
@@ -65,15 +63,11 @@
 
         async function carregarEstoque() {
             try {
-                const response = await fetch(apiUrl, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const response = await fetch(apiUrl, { headers: { 'Authorization': `Bearer ${token}` } });
+                if(!response.ok) throw new Error('Falha ao buscar estoque.');
                 const estoque = await response.json();
                 renderEstoque(estoque);
-            } catch (error) {
-                console.error('Erro ao carregar estoque:', error);
-                alert('Não foi possível carregar o estoque.');
-            }
+            } catch (error) { alert(error.message); }
         }
 
         function renderEstoque(estoque) {
@@ -91,12 +85,8 @@
                             <span>Cód: ${prod.codigo} | Preço: R$ ${prod.preco.toFixed(2)} | Qtd: ${prod.quantidade}</span>
                         </div>
                         <div class="estoque-item-actions">
-                            <button class="botao-adicionar-estoque" onclick="adicionarUnidadeEstoque('${prod.codigo}')" title="Adicionar quantidade ao estoque">
-                                <span class="material-icons" style="font-size: 18px;">add</span>
-                            </button>
-                            <button class="botao-excluir-estoque" onclick="excluirProduto('${prod.codigo}')" title="Excluir produto do estoque">
-                                <span class="material-icons" style="font-size: 18px;">delete</span>
-                            </button>
+                            <button class="botao-adicionar-estoque" onclick="adicionarUnidadeEstoque('${prod.codigo}')"><span class="material-icons" style="font-size: 18px;">add</span></button>
+                            <button class="botao-excluir-estoque" onclick="excluirProduto('${prod.codigo}')"><span class="material-icons" style="font-size: 18px;">delete</span></button>
                         </div>
                     </div>`;
             });
@@ -104,26 +94,18 @@
 
         async function adicionarAoEstoque() {
             const produto = {
-                codigo: document.getElementById('codigo').value,
-                nome: document.getElementById('nome').value,
-                preco: parseFloat(document.getElementById('preco').value),
-                quantidade: parseInt(document.getElementById('quantidade').value),
+                codigo: document.getElementById('codigo').value, nome: document.getElementById('nome').value,
+                preco: parseFloat(document.getElementById('preco').value), quantidade: parseInt(document.getElementById('quantidade').value),
             };
-            if (!produto.codigo || !produto.nome || isNaN(produto.preco) || isNaN(produto.quantidade)) {
-                return alert('Preencha todos os campos corretamente.');
-            }
+            if (!produto.codigo || !produto.nome || isNaN(produto.preco) || isNaN(produto.quantidade)) return alert('Preencha todos os campos corretamente.');
             try {
                 const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(produto)
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(produto)
                 });
                 if (!response.ok) throw new Error('Falha ao adicionar produto.');
                 alert('Produto adicionado com sucesso!');
-                document.getElementById('codigo').value = '';
-                document.getElementById('nome').value = '';
-                document.getElementById('preco').value = '';
-                document.getElementById('quantidade').value = '';
+                document.getElementById('codigo').value = ''; document.getElementById('nome').value = '';
+                document.getElementById('preco').value = ''; document.getElementById('quantidade').value = '';
                 carregarEstoque();
             } catch (error) { alert(error.message); }
         }
@@ -134,9 +116,7 @@
             if (isNaN(quantidade) || quantidade <= 0) return alert("Quantidade inválida.");
             try {
                 const response = await fetch(`${apiUrl}/${codigo}/adicionar`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ quantidade })
+                    method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ quantidade })
                 });
                 if (!response.ok) throw new Error('Falha ao atualizar estoque.');
                 carregarEstoque();
@@ -148,8 +128,7 @@
             if (!confirm(`Tem certeza que deseja excluir o produto de código ${codigo}?`)) return;
             try {
                 const response = await fetch(`${apiUrl}/${codigo}`, { 
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!response.ok) throw new Error('Falha ao excluir produto.');
                 carregarEstoque();

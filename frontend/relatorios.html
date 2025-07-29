@@ -43,7 +43,7 @@
                     <span class="material-icons">inventory_2</span>
                     <h3>Relatório de Estoque</h3>
                 </div>
-                <div class="report-card" onclick="mostrarRelatorioCompras()">
+                 <div class="report-card" onclick="mostrarRelatorioCompras()">
                     <span class="material-icons">shopping_cart</span>
                     <h3>Relatório de Compras</h3>
                 </div>
@@ -54,10 +54,8 @@
                 <input type="date" id="dataCompra" />
                 <select id="metodoPagamentoCompra">
                     <option value="">Selecione o Método de Pagamento</option>
-                    <option value="Dinheiro">Dinheiro</option>
-                    <option value="PIX">PIX</option>
-                    <option value="Débito">Débito</option>
-                    <option value="Crédito">Crédito</option>
+                    <option value="Dinheiro">Dinheiro</option><option value="PIX">PIX</option>
+                    <option value="Débito">Débito</option><option value="Crédito">Crédito</option>
                 </select>
                 <input id="produtoCompra" placeholder="Nome do Produto/Insumo Comprado" />
                 <input type="number" id="valorCompra" placeholder="Valor da Compra (R$)" />
@@ -72,7 +70,6 @@
         if (!token) {
             window.location.href = '/login.html';
         }
-
         const outputArea = document.getElementById('output-area');
 
         function solicitarSenha() {
@@ -81,15 +78,14 @@
         }
 
         async function fetchComAuth(url) {
-            return fetch(url, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            return fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
         }
 
         async function mostrarRelatorioVendas() {
             if (!solicitarSenha()) return alert("Senha incorreta.");
             try {
                 const response = await fetchComAuth('/api/relatorios/vendas');
+                if(!response.ok) throw new Error("Falha ao buscar relatório.");
                 const vendas = await response.json();
                 outputArea.style.display = 'block';
                 let content = '<h3>Relatório de Vendas</h3>';
@@ -97,40 +93,36 @@
                 else {
                     vendas.forEach(v => {
                         const data = new Date(v.data_venda).toLocaleString('pt-BR');
-                        content += `<div class="relatorio-item">
-                                        <span>${data} - <strong>Produto:</strong> ${v.produto_nome}</span>
-                                        <span><strong>Valor:</strong> R$ ${v.produto_preco.toFixed(2)} - <strong>Pgto:</strong> ${v.metodo_pagamento}</span>
-                                    </div>`;
+                        content += `<div class="relatorio-item"><span>${data} - <strong>Produto:</strong> ${v.produto_nome}</span><span><strong>Valor:</strong> R$ ${parseFloat(v.produto_preco).toFixed(2)} - <strong>Pgto:</strong> ${v.metodo_pagamento}</span></div>`;
                     });
                 }
                 outputArea.innerHTML = content;
-            } catch (error) { alert('Erro ao carregar relatório de vendas.'); }
+            } catch (error) { alert(error.message); }
         }
         
         async function mostrarRelatorioEstoque() {
             if (!solicitarSenha()) return alert("Senha incorreta.");
             try {
                 const response = await fetchComAuth('/api/estoque');
+                if(!response.ok) throw new Error("Falha ao buscar relatório.");
                 const estoque = await response.json();
                 outputArea.style.display = 'block';
                 let content = '<h3>Relatório de Estoque</h3>';
                 if(estoque.length === 0) content += '<p>Estoque vazio.</p>';
                 else {
                     estoque.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(p => {
-                         content += `<div class="relatorio-item">
-                                        <span><strong>Produto:</strong> ${p.nome} (Cód: ${p.codigo})</span>
-                                        <span><strong>Preço:</strong> R$ ${p.preco.toFixed(2)} - <strong>Qtd:</strong> ${p.quantidade}</span>
-                                    </div>`;
+                         content += `<div class="relatorio-item"><span><strong>Produto:</strong> ${p.nome} (Cód: ${p.codigo})</span><span><strong>Preço:</strong> R$ ${p.preco.toFixed(2)} - <strong>Qtd:</strong> ${p.quantidade}</span></div>`;
                     });
                 }
                 outputArea.innerHTML = content;
-            } catch (error) { alert('Erro ao carregar relatório de estoque.'); }
+            } catch (error) { alert(error.message); }
         }
 
         async function mostrarRelatorioCompras() {
             if (!solicitarSenha()) return alert("Senha incorreta.");
             try {
                 const response = await fetchComAuth('/api/relatorios/compras');
+                if(!response.ok) throw new Error("Falha ao buscar relatório.");
                 const compras = await response.json();
                 outputArea.style.display = 'block';
                 let content = '<h3>Relatório de Compras</h3>';
@@ -138,14 +130,11 @@
                 else {
                     compras.forEach(c => {
                         const data = new Date(c.data_compra).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
-                        content += `<div class="relatorio-item">
-                                        <span>${data} - <strong>Produto:</strong> ${c.produto}</span>
-                                        <span><strong>Valor:</strong> R$ ${parseFloat(c.valor).toFixed(2)} - <strong>Pgto:</strong> ${c.metodo_pagamento}</span>
-                                    </div>`;
+                        content += `<div class="relatorio-item"><span>${data} - <strong>Produto:</strong> ${c.produto}</span><span><strong>Valor:</strong> R$ ${parseFloat(c.valor).toFixed(2)} - <strong>Pgto:</strong> ${c.metodo_pagamento}</span></div>`;
                     });
                 }
                 outputArea.innerHTML = content;
-            } catch (error) { alert('Erro ao carregar relatório de compras.'); }
+            } catch (error) { alert(error.message); }
         }
         
         async function adicionarCompra() {
@@ -166,6 +155,10 @@
                 });
                 if (!response.ok) throw new Error('Falha ao registrar compra.');
                 alert('Compra registrada com sucesso!');
+                document.getElementById('dataCompra').value = '';
+                document.getElementById('metodoPagamentoCompra').value = '';
+                document.getElementById('produtoCompra').value = '';
+                document.getElementById('valorCompra').value = '';
             } catch(error) { alert(error.message); }
         }
     </script>

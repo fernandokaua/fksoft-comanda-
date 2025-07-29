@@ -38,14 +38,13 @@
                     body: JSON.stringify({ usuario, senha })
                 });
 
+                const data = await response.json();
                 if (response.ok) {
-                    const data = await response.json();
                     localStorage.setItem('authToken', data.token);
                     localStorage.setItem('userRole', data.role); // Salva o cargo também
                     window.location.href = '/index.html';
                 } else {
-                    const errorData = await response.json();
-                    errorMessage.textContent = `Erro: ${errorData.error}`;
+                    errorMessage.textContent = `Erro: ${data.error}`;
                 }
             } catch (error) {
                 errorMessage.textContent = 'Erro de conexão com o servidor.';

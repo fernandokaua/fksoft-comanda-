@@ -95,9 +95,7 @@
 
         async function carregarEstoqueLocal() {
             try {
-                const response = await fetch('/api/estoque', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const response = await fetch('/api/estoque', { headers: { 'Authorization': `Bearer ${token}` } });
                 if (!response.ok) throw new Error('Falha ao carregar estoque do servidor.');
                 estoqueDisponivel = await response.json();
             } catch (error) {
@@ -172,7 +170,6 @@
             if (!clienteParaFechar) return;
             const itensDaComanda = comandas[clienteParaFechar];
             const desconto = parseFloat(document.getElementById('descontoValor').value) || 0;
-
             try {
                 const response = await fetch('/api/vendas', {
                     method: 'POST',

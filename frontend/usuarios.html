@@ -35,12 +35,9 @@
             </select>
             <button onclick="criarUsuario()">Criar Usuário</button>
         </div>
-
         <div class="card">
             <h2>Usuários Cadastrados</h2>
-            <div id="listaDeUsuarios">
-                <p>Carregando usuários...</p>
-            </div>
+            <div id="listaDeUsuarios"><p>Carregando usuários...</p></div>
         </div>
     </main>
 
@@ -60,15 +57,14 @@
                 const response = await fetch(apiUrl, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (!response.ok) throw new Error('Falha ao carregar usuários');
                 const usuarios = await response.json();
                 const listaDiv = document.getElementById('listaDeUsuarios');
                 listaDiv.innerHTML = '';
-
                 if (usuarios.length === 0) {
                     listaDiv.innerHTML = '<p>Nenhum usuário cadastrado.</p>';
                     return;
                 }
-
                 usuarios.forEach(user => {
                     listaDiv.innerHTML += `
                         <div class="user-list-item">
@@ -76,8 +72,7 @@
                                 <span>${user.usuario}</span><br>
                                 <small>Cargo: ${user.role}</small>
                             </div>
-                        </div>
-                    `;
+                        </div>`;
                 });
             } catch (error) { console.error('Erro ao carregar usuários:', error); }
         }
@@ -88,11 +83,9 @@
                 senha: document.getElementById('novaSenha').value,
                 role: document.getElementById('novoCargo').value
             };
-
             if (!novoUsuario.usuario || !novoUsuario.senha || !novoUsuario.role) {
                 return alert('Por favor, preencha todos os campos.');
             }
-
             try {
                 const response = await fetch(apiUrl, {
                     method: 'POST',
@@ -102,18 +95,13 @@
                     },
                     body: JSON.stringify(novoUsuario)
                 });
-
                 const result = await response.json();
-                if (!response.ok) {
-                    throw new Error(result.error);
-                }
-
+                if (!response.ok) throw new Error(result.error);
                 alert('Usuário criado com sucesso!');
                 document.getElementById('novoUsuario').value = '';
                 document.getElementById('novaSenha').value = '';
                 document.getElementById('novoCargo').value = '';
                 carregarUsuarios();
-
             } catch (error) {
                 alert(`Erro: ${error.message}`);
                 console.error('Erro ao criar usuário:', error);
