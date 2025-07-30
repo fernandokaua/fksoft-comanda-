@@ -48,19 +48,11 @@
         </div>
     </main>
     <footer>FKSoft &copy; 2025</footer>
-
     <script>
         const token = localStorage.getItem('authToken');
-        if (!token) {
-            window.location.href = '/login.html';
-        }
+        if (!token) { window.location.href = '/login.html'; }
         const apiUrl = '/api/estoque';
-
-        function solicitarSenha() {
-            const senha = prompt("Para realizar esta ação, por favor, digite a senha de administrador:");
-            return senha === "123"; 
-        }
-
+        function solicitarSenha() { const senha = prompt("Para realizar esta ação, por favor, digite a senha de administrador:"); return senha === "123"; }
         async function carregarEstoque() {
             try {
                 const response = await fetch(apiUrl, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -69,67 +61,40 @@
                 renderEstoque(estoque);
             } catch (error) { alert(error.message); }
         }
-
         function renderEstoque(estoque) {
             const div = document.getElementById('listaEstoque');
             div.innerHTML = '';
-            if (estoque.length === 0) {
-                div.innerHTML = '<p>Nenhum item no estoque.</p>';
-                return;
-            }
+            if (estoque.length === 0) { div.innerHTML = '<p>Nenhum item no estoque.</p>'; return; }
             estoque.forEach(prod => {
-                div.innerHTML += `
-                    <div class="estoque-item">
-                        <div class="estoque-item-info">
-                            <strong>${prod.nome}</strong>
-                            <span>Cód: ${prod.codigo} | Preço: R$ ${prod.preco.toFixed(2)} | Qtd: ${prod.quantidade}</span>
-                        </div>
-                        <div class="estoque-item-actions">
-                            <button class="botao-adicionar-estoque" onclick="adicionarUnidadeEstoque('${prod.codigo}')"><span class="material-icons" style="font-size: 18px;">add</span></button>
-                            <button class="botao-excluir-estoque" onclick="excluirProduto('${prod.codigo}')"><span class="material-icons" style="font-size: 18px;">delete</span></button>
-                        </div>
-                    </div>`;
+                div.innerHTML += `<div class="estoque-item"><div class="estoque-item-info"><strong>${prod.nome}</strong><span>Cód: ${prod.codigo} | Preço: R$ ${prod.preco.toFixed(2)} | Qtd: ${prod.quantidade}</span></div><div class="estoque-item-actions"><button class="botao-adicionar-estoque" onclick="adicionarUnidadeEstoque('${prod.codigo}')"><span class="material-icons" style="font-size: 18px;">add</span></button><button class="botao-excluir-estoque" onclick="excluirProduto('${prod.codigo}')"><span class="material-icons" style="font-size: 18px;">delete</span></button></div></div>`;
             });
         }
-
         async function adicionarAoEstoque() {
-            const produto = {
-                codigo: document.getElementById('codigo').value, nome: document.getElementById('nome').value,
-                preco: parseFloat(document.getElementById('preco').value), quantidade: parseInt(document.getElementById('quantidade').value),
-            };
+            const produto = { codigo: document.getElementById('codigo').value, nome: document.getElementById('nome').value, preco: parseFloat(document.getElementById('preco').value), quantidade: parseInt(document.getElementById('quantidade').value) };
             if (!produto.codigo || !produto.nome || isNaN(produto.preco) || isNaN(produto.quantidade)) return alert('Preencha todos os campos corretamente.');
             try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(produto)
-                });
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(produto) });
                 if (!response.ok) throw new Error('Falha ao adicionar produto.');
                 alert('Produto adicionado com sucesso!');
-                document.getElementById('codigo').value = ''; document.getElementById('nome').value = '';
-                document.getElementById('preco').value = ''; document.getElementById('quantidade').value = '';
+                document.getElementById('codigo').value = ''; document.getElementById('nome').value = ''; document.getElementById('preco').value = ''; document.getElementById('quantidade').value = '';
                 carregarEstoque();
             } catch (error) { alert(error.message); }
         }
-
         async function adicionarUnidadeEstoque(codigo) {
             const quantidadeStr = prompt("Qual a quantidade que deseja adicionar?");
             const quantidade = parseInt(quantidadeStr);
             if (isNaN(quantidade) || quantidade <= 0) return alert("Quantidade inválida.");
             try {
-                const response = await fetch(`${apiUrl}/${codigo}/adicionar`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ quantidade })
-                });
+                const response = await fetch(`${apiUrl}/${codigo}/adicionar`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ quantidade }) });
                 if (!response.ok) throw new Error('Falha ao atualizar estoque.');
                 carregarEstoque();
             } catch (error) { alert(error.message); }
         }
-        
         async function excluirProduto(codigo) {
             if (!solicitarSenha()) return alert("Senha incorreta. Ação cancelada.");
             if (!confirm(`Tem certeza que deseja excluir o produto de código ${codigo}?`)) return;
             try {
-                const response = await fetch(`${apiUrl}/${codigo}`, { 
-                    method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const response = await fetch(`${apiUrl}/${codigo}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
                 if (!response.ok) throw new Error('Falha ao excluir produto.');
                 carregarEstoque();
             } catch (error) { alert(error.message); }

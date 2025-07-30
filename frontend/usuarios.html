@@ -40,11 +40,9 @@
             <div id="listaDeUsuarios"><p>Carregando usuários...</p></div>
         </div>
     </main>
-
     <script>
         const token = localStorage.getItem('authToken');
         const userRole = localStorage.getItem('userRole');
-        
         if (!token || userRole !== 'admin') {
             alert('Acesso negado. Você não tem permissão para ver esta página.');
             window.location.href = '/index.html';
@@ -66,13 +64,7 @@
                     return;
                 }
                 usuarios.forEach(user => {
-                    listaDiv.innerHTML += `
-                        <div class="user-list-item">
-                            <div class="user-info">
-                                <span>${user.usuario}</span><br>
-                                <small>Cargo: ${user.role}</small>
-                            </div>
-                        </div>`;
+                    listaDiv.innerHTML += `<div class="user-list-item"><div class="user-info"><span>${user.usuario}</span><br><small>Cargo: ${user.role}</small></div></div>`;
                 });
             } catch (error) { console.error('Erro ao carregar usuários:', error); }
         }
