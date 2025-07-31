@@ -21,12 +21,15 @@
         .comanda { background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; overflow: hidden; }
         .comanda-header { display: grid; grid-template-columns: 1fr auto; gap: 15px; align-items: center; background-color: #007bff; color: #ffffff; padding: 15px; }
         .comanda-header h4 { margin: 0; font-size: 1.3rem; font-weight: 700; }
+        .toggle-button { background: none; border: none; color: white; cursor: pointer; padding: 5px; }
         .comanda-body { padding: 15px; }
         .item { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 8px; }
         .item-delete-button { background-color: #dc3545; color: white; border: none; cursor: pointer; width: 30px; height: 30px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1.2rem; line-height: 1; }
         .comanda-footer { padding: 15px; background-color: #f8f9fa; border-top: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; }
         .comanda-total { font-size: 1.2rem; font-weight: 700; }
         .comanda-actions button { width: auto; padding: 10px 15px; margin-left: 10px; color: white; border: none; }
+        .btn-add-item { background-color: #6c757d; }
+        .btn-add-item:hover { background-color: #5a6268; }
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: white; padding: 25px; border-radius: 12px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .modal-content h3 { margin-top: 0; font-size: 1.5rem; color: #343a40; }
@@ -48,23 +51,17 @@
                 <input id="cliente" placeholder="Nome do Cliente" />
                 <button class="action-button" onclick="adicionarCliente()">Adicionar Cliente</button>
             </div>
+            <div class="card">
+                <h3>Pesquisar Comanda</h3>
+                <input id="searchInput" onkeyup="filtrarComandas()" placeholder="Digite o nome do cliente para filtrar...">
+            </div>
             <div id="listaComandas"></div>
         </div>
     </main>
     <footer>FKSoft &copy; 2025</footer>
 
-    <div id="modalQuantidade" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h3 id="modalQuantidadeProdutoNome"></h3>
-            <p>Estoque disponível: <span id="modalQuantidadeEstoqueDisp"></span></p>
-            <input type="number" id="produtoQuantidade" placeholder="Digite a quantidade" min="1" value="1">
-            <div class="modal-actions">
-                <button class="action-button" onclick="confirmarAdicaoProduto()">Adicionar</button>
-                <button class="cancel-button" onclick="fecharModal('modalQuantidade')">Cancelar</button>
-            </div>
-        </div>
-    </div>
-
+    <div id="modalQuantidade" class="modal" style="display: none;"><div class="modal-content"><h3 id="modalQuantidadeProdutoNome"></h3><p>Estoque disponível: <span id="modalQuantidadeEstoqueDisp"></span></p><input type="number" id="produtoQuantidade" placeholder="Digite a quantidade" min="1" value="1"><div class="modal-actions"><button class="action-button" onclick="confirmarAdicaoProduto()">Adicionar</button><button class="cancel-button" onclick="fecharModal('modalQuantidade')">Cancelar</button></div></div></div>
+    
     <div id="modalPagamento" class="modal" style="display: none;">
         <div class="modal-content">
             <h3>Finalizar Pagamento</h3>
@@ -77,7 +74,7 @@
                 <button onclick="finalizarPagamento('Crédito')">Crédito</button>
             </div>
             <hr>
-            <input type="number" id="descontoValor" placeholder="Desconto (R$)" min="0" value="0" step="0.01">
+            <input type="number" id="descontoValor" placeholder="Desconto (R$)" min="0" step="0.01">
             <button class="cancel-button" onclick="fecharModal('modalPagamento')">Cancelar</button>
         </div>
     </div>
@@ -112,7 +109,10 @@
             const nome = document.getElementById('cliente').value.trim();
             if (!nome) return alert('Digite o nome do cliente.');
             if (!comandas[nome]) {
-                comandas[nome] = [];
+                comandas[nome] = {
+                    itens: [],
+                    minimizada: false
+                };
                 salvarComandasAtivasLocal();
                 renderComandas();
                 document.getElementById('cliente').value = '';
@@ -121,13 +121,30 @@
             }
         }
 
+        function filtrarComandas() {
+            const termo = document.getElementById('searchInput').value.toLowerCase();
+            const todasAsComandas = document.querySelectorAll('.comanda');
+            todasAsComandas.forEach(comandaDiv => {
+                const nomeCliente = comandaDiv.dataset.cliente.toLowerCase();
+                if (nomeCliente.includes(termo)) {
+                    comandaDiv.style.display = 'block';
+                } else {
+                    comandaDiv.style.display = 'none';
+                }
+            });
+        }
+
+        function toggleMinimizar(cliente) {
+            comandas[cliente].minimizada = !comandas[cliente].minimizada;
+            salvarComandasAtivasLocal();
+            renderComandas();
+        }
+
         function adicionarProdutoAComanda(cliente) {
             const codigo = prompt("Digite o código do produto:");
             if (!codigo) return;
-            
             const produto = estoqueDisponivel.find(p => p.codigo === codigo);
             if (!produto) return alert('Produto não encontrado no estoque.');
-            
             produtoParaAdicionar = { ...produto, cliente: cliente };
             document.getElementById('modalQuantidadeProdutoNome').textContent = produto.nome;
             document.getElementById('modalQuantidadeEstoqueDisp').textContent = produto.quantidade;
@@ -140,14 +157,11 @@
             if (!produtoParaAdicionar) return;
             const quantidade = parseInt(document.getElementById('produtoQuantidade').value);
             const produtoNoEstoque = estoqueDisponivel.find(p => p.codigo === produtoParaAdicionar.codigo);
-
             if (isNaN(quantidade) || quantidade <= 0) return alert('Quantidade inválida.');
             if (produtoNoEstoque.quantidade < quantidade) return alert(`Estoque insuficiente. Disponível: ${produtoNoEstoque.quantidade}`);
-
             for (let i = 0; i < quantidade; i++) {
-                comandas[produtoParaAdicionar.cliente].push({ codigo: produtoParaAdicionar.codigo, nome: produtoParaAdicionar.nome, preco: produtoParaAdicionar.preco });
+                comandas[produtoParaAdicionar.cliente].itens.push({ codigo: produtoParaAdicionar.codigo, nome: produtoParaAdicionar.nome, preco: produtoParaAdicionar.preco });
             }
-            
             produtoNoEstoque.quantidade -= quantidade;
             salvarComandasAtivasLocal();
             renderComandas();
@@ -156,37 +170,55 @@
         }
 
         function fecharComanda(cliente) {
-            const itensDaComanda = comandas[cliente];
+            const itensDaComanda = comandas[cliente].itens;
             if (!itensDaComanda || itensDaComanda.length === 0) return alert("Comanda vazia.");
-
             clienteParaFechar = cliente;
             const total = itensDaComanda.reduce((s, i) => s + i.preco, 0);
             document.getElementById('modalPagamentoTotal').textContent = `R$ ${total.toFixed(2)}`;
-            document.getElementById('descontoValor').value = 0;
+            // MUDANÇA AQUI: limpa o campo em vez de colocar 0
+            document.getElementById('descontoValor').value = ''; 
             document.getElementById('modalPagamento').style.display = 'flex';
         }
 
         async function finalizarPagamento(metodoPagamento) {
             if (!clienteParaFechar) return;
-            const itensDaComanda = comandas[clienteParaFechar];
+            const itensDaComanda = comandas[clienteParaFechar].itens;
+            const total = itensDaComanda.reduce((s, i) => s + i.preco, 0);
             const desconto = parseFloat(document.getElementById('descontoValor').value) || 0;
+            const totalComDesconto = total - desconto;
+            
+            if (totalComDesconto < 0) return alert("O desconto não pode ser maior que o valor total.");
+
+            if (metodoPagamento === 'Dinheiro') {
+                const valorRecebidoStr = prompt(`Total a pagar: R$ ${totalComDesconto.toFixed(2)}\n\nDigite o valor recebido do cliente:`);
+                const valorRecebido = parseFloat(valorRecebidoStr);
+                if (isNaN(valorRecebido) || valorRecebido < totalComDesconto) {
+                    return alert("Valor recebido inválido ou insuficiente. Pagamento cancelado.");
+                }
+                const troco = valorRecebido - totalComDesconto;
+                alert(`Troco: R$ ${troco.toFixed(2)}`);
+            }
+
             try {
                 const response = await fetch('/api/vendas', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ itens: itensDaComanda, metodoPagamento, desconto })
+                    body: JSON.stringify({
+                        itens: itensDaComanda,
+                        metodoPagamento: metodoPagamento,
+                        desconto: desconto,
+                        clienteNome: clienteParaFechar
+                    })
                 });
-
                 if (!response.ok) {
                     const err = await response.json();
                     throw new Error(err.error || 'Falha ao finalizar a venda.');
                 }
-
                 alert('Venda finalizada com sucesso!');
                 delete comandas[clienteParaFechar];
                 salvarComandasAtivasLocal();
                 renderComandas();
-                carregarEstoqueLocal();
+                await carregarEstoqueLocal();
                 fecharModal('modalPagamento');
                 clienteParaFechar = null;
             } catch (error) {
@@ -200,10 +232,10 @@
         }
 
         function excluirItem(cliente, index) {
-            const itemRemovido = comandas[cliente][index];
+            const itemRemovido = comandas[cliente].itens[index];
             const produto = estoqueDisponivel.find(p => p.codigo === itemRemovido.codigo);
             if (produto) produto.quantidade++;
-            comandas[cliente].splice(index, 1);
+            comandas[cliente].itens.splice(index, 1);
             salvarComandasAtivasLocal();
             renderComandas();
         }
@@ -212,29 +244,38 @@
             const div = document.getElementById('listaComandas');
             div.innerHTML = '';
             for (let cliente in comandas) {
-                const totalComanda = comandas[cliente].reduce((s, i) => s + i.preco, 0).toFixed(2);
+                const comanda = comandas[cliente];
+                const totalComanda = comanda.itens.reduce((s, i) => s + i.preco, 0).toFixed(2);
+                const isMinimized = comanda.minimizada;
+                const bodyStyle = isMinimized ? 'style="display: none;"' : '';
+                const footerStyle = isMinimized ? 'style="display: none;"' : '';
+                const icon = isMinimized ? 'expand_more' : 'expand_less';
                 div.innerHTML += `
-                    <div class="comanda">
-                        <div class="comanda-header"><h4>${cliente}</h4></div>
-                        <div class="comanda-body">
-                            ${comandas[cliente].map((item, i) => `
+                    <div class="comanda" data-cliente="${cliente}">
+                        <div class="comanda-header">
+                            <h4>${cliente}</h4>
+                            <button class="toggle-button" onclick="toggleMinimizar('${cliente}')"><span class="material-icons">${icon}</span></button>
+                        </div>
+                        <div class="comanda-body" ${bodyStyle}>
+                            ${comanda.itens.map((item, i) => `
                                 <div class="item">
                                     <span>${item.nome} - R$ ${item.preco.toFixed(2)}</span>
                                     <button class="item-delete-button" onclick="excluirItem('${cliente}', ${i})">&times;</button>
                                 </div>
                             `).join('') || '<p>Nenhum item adicionado.</p>'}
                         </div>
-                        <div class="comanda-footer">
+                        <div class="comanda-footer" ${footerStyle}>
                             <span class="comanda-total">Total: R$ ${totalComanda}</span>
                             <div class="comanda-actions">
-                                <button onclick="adicionarProdutoAComanda('${cliente}')">Adicionar Item</button>
+                                <button class="btn-add-item" onclick="adicionarProdutoAComanda('${cliente}')">Adicionar Item</button>
                                 <button onclick="fecharComanda('${cliente}')" style="background-color:#28a745;">Fechar Comanda</button>
                             </div>
                         </div>
                     </div>`;
             }
+            filtrarComandas();
         }
-        document.addEventListener('DOMContentLoaded', () => { carregarEstoqueLocal(); renderComandas(); });
+        document.addEventListener('DOMContentLoaded', () => { carregarEstoqueLocal().then(renderComandas); });
     </script>
 </body>
 </html>

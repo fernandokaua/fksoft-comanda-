@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Super Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Roboto', sans-serif; background-color: #212529; color: #f8f9fa; margin: 0; }
+        header { background-color: #343a40; padding: 15px; text-align: center; font-size: 1.5rem; }
+        main { padding: 20px; max-width: 1200px; margin: 20px auto; }
+        .grid-container { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+        .card { background-color: #343a40; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        h2 { margin-top: 0; color: #0d6efd; border-bottom: 1px solid #495057; padding-bottom: 10px; }
+        .loja-item { padding: 10px; border-radius: 5px; cursor: pointer; margin-bottom: 5px; transition: background-color 0.2s; }
+        .loja-item:hover, .loja-item.active { background-color: #495057; }
+        .user-list-item { display: grid; grid-template-columns: 1fr 120px 100px; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid #495057; }
+        .user-list-item:last-child { border-bottom: none; }
+        input, select, button { padding: 8px; border-radius: 5px; border: 1px solid #6c757d; background-color: #495057; color: white; width: 100%; margin-top: 5px; }
+        button { background-color: #0d6efd; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <header>Painel de Controle do Sistema (Super Admin)</header>
+    <main>
+        <div class="card">
+            <h2>Nova Loja / Cliente</h2>
+            <input type="text" id="nomeNovaLoja" placeholder="Nome da nova loja">
+            <input type="text" id="usuarioNovoAdmin" placeholder="Usuário admin para a loja">
+            <input type="password" id="senhaNovoAdmin" placeholder="Senha para o admin">
+            <button onclick="criarNovaLoja()">Criar Nova Loja e Admin</button>
+        </div>
+        <div class="grid-container">
+            <div class="card">
+                <h2>Lojas Clientes</h2>
+                <div id="listaLojas"></div>
+            </div>
+            <div class="card">
+                <h2>Usuários da Loja Selecionada</h2>
+                <div id="listaUsuarios"></div>
+            </div>
+        </div>
+    </main>
+    <script>
+        const token = localStorage.getItem('authToken');
+        const userRole = localStorage.getItem('userRole');
+
+        if (!token || userRole !== 'superadmin') {
+            alert('Acesso negado.');
+            window.location.href = '/login.html';
+        }
+
+        async function fetchLojas() {
+            const response = await fetch('/api/superadmin/lojas', { headers: { 'Authorization': `Bearer ${token}` } });
+            if (!response.ok) throw new Error('Falha ao buscar lojas.');
+            const lojas = await response.json();
+            const div = document.getElementById('listaLojas');
+            div.innerHTML = '';
+            lojas.forEach(loja => {
+                div.innerHTML += `<div class="loja-item" onclick="fetchUsuarios(${loja.id}, this)">${loja.nome}</div>`;
+            });
+        }
+
+        async function fetchUsuarios(lojaId, element) {
+            document.querySelectorAll('.loja-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            const response = await fetch(`/api/superadmin/usuarios?lojaId=${lojaId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (!response.ok) throw new Error('Falha ao buscar usuários.');
+            const usuarios = await response.json();
+            const div = document.getElementById('listaUsuarios');
+            div.innerHTML = '';
+            usuarios.forEach(user => {
+                div.innerHTML += `
+                    <div class="user-list-item">
+                        <span>${user.usuario}</span>
+                        <select id="role-${user.id}">
+                            <option value="caixa" ${user.role === 'caixa' ? 'selected' : ''}>Caixa</option>
+                            <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin da Loja</option>
+                        </select>
+                        <button onclick="atualizarCargo(${user.id})">Salvar</button>
+                    </div>`;
+            });
+        }
+
+        async function atualizarCargo(userId) {
+            const newRole = document.getElementById(`role-${userId}`).value;
+            try {
+                const response = await fetch(`/api/superadmin/usuarios/${userId}/role`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ role: newRole })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+                alert(result.message);
+            } catch (error) { alert('Erro: ' + error.message); }
+        }
+
+        async function criarNovaLoja() {
+            const nomeLoja = document.getElementById('nomeNovaLoja').value;
+            const usuarioAdmin = document.getElementById('usuarioNovoAdmin').value;
+            const senhaAdmin = document.getElementById('senhaNovoAdmin').value;
+            if (!nomeLoja || !usuarioAdmin || !senhaAdmin) return alert('Preencha todos os campos para criar a nova loja.');
+
+            try {
+                const response = await fetch('/api/superadmin/lojas', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ nomeLoja, usuarioAdmin, senhaAdmin })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+                alert(result.message);
+                // Limpa os campos e recarrega a lista de lojas
+                document.getElementById('nomeNovaLoja').value = '';
+                document.getElementById('usuarioNovoAdmin').value = '';
+                document.getElementById('senhaNovoAdmin').value = '';
+                fetchLojas();
+            } catch (error) { alert('Erro: ' + error.message); }
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchLojas);
+    </script>
+</body>
+</html>

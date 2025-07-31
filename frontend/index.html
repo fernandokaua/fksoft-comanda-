@@ -44,20 +44,27 @@
     <footer>FKSoft &copy; 2025</footer>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem('authToken');
-            if (!token) {
-                window.location.href = '/login.html';
-                return;
-            }
+    document.addEventListener('DOMContentLoaded', () => {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            window.location.href = '/login.html';
+            return;
+        }
 
-            const userRole = localStorage.getItem('userRole');
-            const manageUsersButton = document.getElementById('btn-gerenciar-usuarios');
+        const userRole = localStorage.getItem('userRole');
+        const manageUsersButton = document.getElementById('btn-gerenciar-usuarios');
 
-            if (userRole !== 'admin' && manageUsersButton) {
-                manageUsersButton.style.display = 'none';
-            }
-        });
-    </script>
+        if (userRole === 'superadmin') {
+            // Se for SUPERADMIN, o botão leva para o painel de controle total
+            manageUsersButton.href = '/superadmin.html';
+        } else if (userRole === 'admin') {
+            // Se for ADMIN de loja, o botão leva para o painel de funcionários da loja
+            manageUsersButton.href = '/usuarios.html';
+        } else {
+            // Se for CAIXA ou outro cargo, o botão é escondido
+            manageUsersButton.style.display = 'none';
+        }
+    });
+</script>
 </body>
 </html>
